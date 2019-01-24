@@ -44,11 +44,8 @@ class Row_Column:
                         ,replace_dict=None):
         r"""create a dictionary that holds splitted words
         this list will be a split of seperator"""
-        # print('--------debug------')
-        # print(value)
-        # print('---------')
-        # replace any untested chars
 
+        # replace any untested chars
         if chars_tostrip is not None:
             for ch in chars_tostrip:
                 value = value.replace(ch,"").strip()
@@ -219,10 +216,10 @@ class Row():
         # print(baseword_list)
         # quit()
         self.fieldname_toevaluate_list = fieldname_toevaluate_list
-        self.rowid = rowid#None
-        self.row_df = row_data#None
+        self.rowid = None
+        self.row_df = None
         self.word_lod = [] # valid for the whole columns
-        #deprecated self.add_row_df(rowid,row_data)
+        self.add_row_df(rowid,row_data)
         # list of lookup operations done with predefine ratio
         # self.matched_src_list = []
         self.add_word_lod(chars_tostrip=chars_tostrip\
@@ -234,16 +231,17 @@ class Row():
 
 
 
-    # def add_row_df(self,rowid,row_data):
-    #     self.rowid = rowid
-    #     # if fieldname_to_evaluate passed by client then
-    #     # add only those fields into self.row_df
-    #     if self.fieldname_toevaluate_list is not None:
-    #         col_list = (list(row_data.keys()))
-    #         for col in col_list:
-    #             if col not in self.fieldname_toevaluate_list:
-    #                 row_data = row_data.drop(col)
-    #     self.row_df = row_data
+    def add_row_df(self,rowid,row_data):
+        self.rowid = rowid
+        # if fieldname_to_evaluate passed by client then
+        # add only those fields into self.row_df
+        #deprecated on 20181105 if self.fieldname_toevaluate_list is not None:
+        if len(self.fieldname_toevaluate_list) > 0:
+            col_list = (list(row_data.keys()))
+            for col in col_list:
+                if col not in self.fieldname_toevaluate_list:
+                    row_data = row_data.drop(col)        
+        self.row_df = row_data
 
     def remove_dup_word_lod(self):
         _word_lod = []
@@ -406,15 +404,15 @@ class Row_Source(Row):
                 wm_dict["idx_src"] = _rs_word_dict["idx"]
 
                 fr = self.get_fuzz_ratio(_rt_word_dict["val"],_rs_word_dict["val"])
-                if word_common_list is not None:
-                    #if a word in under word_common_list then decrease the score
-                    if _rs_word_dict["val"] in word_common_list:
-                        fr = fr - (fr * word_common_rate / 100)
-                if _rs_word_dict["val"].isdigit() == True:
-                    #if a word is is_digit() then decrease the score
-                    #in future: should be made outside here!
-                    #           eg. make it higher if other words are matched
-                    fr = fr - (fr * penalty_digit_rate / 100)
+                # if word_common_list is not None:
+                #     #if a word in under word_common_list then decrease the score
+                #     if _rs_word_dict["val"] in word_common_list:
+                #         fr = fr - (fr * word_common_rate / 100)
+                # if _rs_word_dict["val"].isdigit() == True:
+                #     #if a word is is_digit() then decrease the score
+                #     #in future: should be made outside here!
+                #     #           eg. make it higher if other words are matched
+                #     fr = fr - (fr * penalty_digit_rate / 100)
                 # set weighted average
                 if trg_weight_colidx is not None:
                     if _rt_word_dict["col_idx"] < len(trg_weight_colidx):
@@ -507,6 +505,16 @@ class Row_Source(Row):
 
 
                 if fr >= fuzzratio_min:
+                    if word_common_list is not None:
+                        #if a word in under word_common_list then decrease the score
+                        if _rs_word_dict["val"] in word_common_list:
+                            fr = fr - (fr * word_common_rate / 100)
+                    if _rs_word_dict["val"].isdigit() == True:
+                        #if a word is is_digit() then decrease the score
+                        #in future: should be made outside here!
+                        #           eg. make it higher if other words are matched
+                        fr = fr - (fr * penalty_digit_rate / 100)
+
                     # set boosted score by creating relationship by user scores
                     score = fr * wm_dict["sco_trg_colidx"]\
                             * wm_dict["sco_trg_gi"]\
@@ -582,24 +590,25 @@ class HILookup:
     def __init__(self,src_df, trg_df, numof_output=3):
         # future: an internal, balanced config should be used
         #         to assign default values of these attributes
-        self.word_common_list = None
-        self.word_common_rate = 51
+
         self.chars_tostrip = None #';:[-/()\{\}<>*]'
         self.fuzzratio_min = 90
         self.penalty_rate = 10
         self.penalty_digit_rate = 10
-        self.matched_score_min = 90
-        self.trg_weight_colidx = [9,8,7,6,5]
-        self.trg_weight_groupidx = [9,8,7,6,5]
-        self.trg_weight_wordidx = [9,8,7,6,5]
-        self.src_weight_groupidx = [9,8,7,6,5]
-        self.src_weight_wordidx = [9,8,7,6,5]
+        self.word_common_list = None
+        self.word_common_rate = 60
+        self.matched_score_min = 50
+        self.trg_weight_colidx = [1]
+        self.trg_weight_groupidx = [1]
+        self.trg_weight_wordidx = [1]
+        self.src_weight_groupidx = [1]
+        self.src_weight_wordidx = [1]
         self.src_df = src_df
         self.src_fieldname_toevaluate_list = []
         self.src_wordindex_group_dict = None
         self.src_wordindex_simple = None
         self.src_baseword_list = None
-        self.src_baseword_rate = 10
+        self.src_baseword_rate = 1
         self.src_replace_dict = None
         self.trg_df = trg_df
         self.trg_fieldname_toevaluate_list = []
@@ -609,7 +618,7 @@ class HILookup:
         self.trg_baseword_rate = 10
         self.trg_replace_dict = None
         self.trg_df_matched = None
-        self.baseword_matched_rate = 10
+        self.baseword_matched_rate = 1
         self.src_list = []
         self.src_dumped_list = [] # to control rs dump to one only at rs object creation run time
         self.trg_matching_list = []
@@ -632,14 +641,6 @@ class HILookup:
         # validate user inputs
         #--------------------
 
-        # provide error if user provide column name that does not exist in the data
-        trg_cols = list(self.trg_df)
-        for col in self.trg_fieldname_toevaluate_list:
-            if col not in trg_cols:
-                print("Error!!! {} is not in target dataset! Exiting...".format(col))
-                quit()
-
-
         # provide error/warning if user provide new attributes
         for k,v in self.__dict__.items():
             if k not in ['trg_df','src_df']:
@@ -661,64 +662,14 @@ class HILookup:
         #             print("Info! {} assigned to {} default {}".format(k,v,self.init_dict[k]))
 
 
-    def subset_columns(self):
-        # target
-        if len(self.trg_fieldname_toevaluate_list) > 0:
-            self.trg_df = self.trg_df[self.trg_fieldname_toevaluate_list]
-        if len(self.src_fieldname_toevaluate_list) > 0:
-            self.src_df = self.src_df[self.src_fieldname_toevaluate_list]
-
-        # print(list(self.trg_df))
-        # print(list(self.src_df))
-        # quit()
-
     def hilookup(self):
         # print(list(self.trg_df))
         # print(list(self.src_df))
-        # validating...
-
-
-        from itertools import repeat
+        #from itertools import repeat
         # validate user inputs
         self.validate_user_input()
-        # calculating max and min value for weighted score
-        trg_weight_colidx_max = max(self.trg_weight_colidx)
-        trg_weight_colidx_min = min(self.trg_weight_colidx)
-        trg_weight_groupidx_max = max(self.trg_weight_groupidx)
-        trg_weight_groupidx_min = min(self.trg_weight_groupidx)
-        trg_weight_wordidx_max = max(self.trg_weight_wordidx)
-        trg_weight_wordidx_min = min(self.trg_weight_wordidx)
-        src_weight_groupidx_max = max(self.src_weight_groupidx)
-        src_weight_groupidx_min = min(self.src_weight_groupidx)
-        src_weight_wordidx_max = max(self.src_weight_wordidx)
-        src_weight_wordidx_min = min(self.src_weight_wordidx)
-        trg_baseword_rate_max = self.trg_baseword_rate
-        trg_baseword_rate_min = 1
-        src_baseword_rate_max = self.src_baseword_rate
-        src_baseword_rate_min = 1
-        baseword_matched_rate_max = self.baseword_matched_rate
-        baseword_matched_rate_min = 1
-        weighted_score_max = 100 * trg_weight_colidx_max\
-                             * trg_weight_groupidx_max\
-                             * trg_weight_wordidx_max\
-                             * src_weight_groupidx_max\
-                             * src_weight_wordidx_max
-
-        weighted_score_min = self.fuzzratio_min * trg_weight_colidx_min\
-                             * trg_weight_groupidx_min\
-                             * trg_weight_wordidx_min\
-                             * src_weight_groupidx_min\
-                             * src_weight_wordidx_min
 
 
-
-
-
-        # print(weighted_score_min)
-        # quit()
-
-        # check evaluated fields strip them if not wanted
-        self.subset_columns()
         # add the src list
         self.add_src_list()
 
@@ -739,7 +690,7 @@ class HILookup:
             else:
                 row_trg_list.append(pdrow)
 
-        numof_core_touse = multiprocessing.cpu_count() - 1
+        numof_core_touse = (multiprocessing.cpu_count() * 2) - 1
         # with Pool(processes=numof_core_touse) as pool:
             #p = pool.map(self.scan_src_row,row_trg_list)
         # for res in p:
@@ -800,6 +751,7 @@ class HILookup:
 
         # print(rowid_trg)
         # print(multiprocessing.current_process())
+
         rt = Row_Target(rowid_trg,row_trg\
                       ,chars_tostrip=self.chars_tostrip\
                       ,fieldname_toevaluate_list=self.trg_fieldname_toevaluate_list\
