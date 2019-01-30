@@ -354,6 +354,7 @@ class Row_Source(Row):
                              ,trg_weight_colidx=None\
                              ,trg_weight_groupidx=None\
                              ,trg_weight_wordidx=None\
+                             ,src_weight_colidx=None\
                              ,src_weight_groupidx=None\
                              ,src_weight_wordidx=None\
                              ,is_debug_mode=None):
@@ -362,12 +363,14 @@ class Row_Source(Row):
         score_weighted_min = fuzzratio_min * min(trg_weight_colidx)\
                              * min(trg_weight_groupidx)\
                              * min(trg_weight_wordidx)\
+                             * min(src_weight_colidx)\
                              * min(src_weight_groupidx)\
                              * min(src_weight_wordidx)\
                              * 1 #represent the min for trg_baseword_rate,src_baseword_rate and baseword_matched_rate
         score_weighted_max = 100 * max(trg_weight_colidx)\
                              * max(trg_weight_groupidx)\
                              * max(trg_weight_wordidx)\
+                             * max(src_weight_colidx)\
                              * max(src_weight_groupidx)\
                              * max(src_weight_wordidx)\
                              * trg_baseword_rate\
@@ -400,6 +403,11 @@ class Row_Source(Row):
                     wm_dict["sco_trg_wi"] = trg_weight_wordidx[_rt_word_dict["wi"]]
                 else:
                     wm_dict["sco_trg_wi"] = 1
+
+                if _rs_word_dict["col_idx"] < len(src_weight_colidx):
+                    wm_dict["sco_src_colidx"] = src_weight_colidx[_rs_word_dict["col_idx"]]
+                else:
+                    wm_dict["sco_src_colidx"] = 1
 
                 if _rs_word_dict["gi"] < len(src_weight_groupidx):
                     wm_dict["sco_src_gi"] = src_weight_groupidx[_rs_word_dict["gi"]]
@@ -444,6 +452,7 @@ class Row_Source(Row):
                         inputp = (100-fr)* wm_dict["sco_trg_colidx"]\
                                 * wm_dict["sco_trg_gi"]\
                                 * wm_dict["sco_trg_wi"]\
+                                * wm_dict["sco_src_colidx"]\
                                 * wm_dict["sco_src_gi"]\
                                 * wm_dict["sco_src_wi"]\
                                 * wm_dict["sco_trg_has_bw"]\
@@ -495,6 +504,7 @@ class Row_Source(Row):
                     input = fr * wm_dict["sco_trg_colidx"]\
                             * wm_dict["sco_trg_gi"]\
                             * wm_dict["sco_trg_wi"]\
+                            * wm_dict["sco_src_colidx"]\
                             * wm_dict["sco_src_gi"]\
                             * wm_dict["sco_src_wi"]\
                             * wm_dict["sco_trg_has_bw"]\
@@ -561,6 +571,7 @@ class HILookup:
         self.trg_weight_colidx = [1]
         self.trg_weight_groupidx = [1]
         self.trg_weight_wordidx = [1]
+        self.src_weight_colidx = [1]
         self.src_weight_groupidx = [1]
         self.src_weight_wordidx = [1]
         self.src_df = src_df
@@ -746,6 +757,7 @@ class HILookup:
                                     ,trg_weight_colidx=self.trg_weight_colidx\
                                     ,trg_weight_groupidx=self.trg_weight_groupidx\
                                     ,trg_weight_wordidx=self.trg_weight_wordidx\
+                                    ,src_weight_colidx=self.src_weight_colidx\
                                     ,src_weight_groupidx=self.src_weight_groupidx\
                                     ,src_weight_wordidx=self.src_weight_wordidx\
                                     ,is_debug_mode=self.is_debug_mode)
