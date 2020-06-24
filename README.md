@@ -21,4 +21,4 @@ Let’s start with the example ‘\Sections\Spams\Foo Bar’. This string can be
 2.	Foo Bar, Foo, Bar, Spams
 3.	Sections, Spams, Foo Bar, Foo, Bar
 
-[to be continued...]
+[to be continued....]

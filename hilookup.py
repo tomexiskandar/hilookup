@@ -61,7 +61,8 @@ class Row_Column:
             else:
                 self.baseword = None
 
-        # truncate word(s) if required (yes! using replace function)
+
+        # truncate word(s) if required
         if replace_dict is not None:
             value = self.replace_word(value,replace_dict)
 
@@ -74,6 +75,8 @@ class Row_Column:
                 if value.find(sep) >= 0:
                     has_complex_word = True
                     self.split_group_words(value,sep,wordindex_group_dict)
+
+
 
         # if there is no complex words
         if len(self.word_group_list) == 0:
@@ -96,10 +99,16 @@ class Row_Column:
             _dict["wi"] = 0
             _dict["val"] = wg_item
             _dict["bw"] = self.baseword
+            # if value =='MAA 400 M M':
+            #     print(_dict)
+            #     print(wg_item)
             self.word_col_lod.append(_dict)
             # add the splitted words
             if len(wg_item.split()) > 1:
                 self.split_simple_words(si,wg_item,wordindex_simple)
+                # if value =='MAA 4000 M M':
+                #     for row in self.word_col_lod:
+                #         print(row)
 
     def split_group_words(self,value,separator\
                             ,wordindex_group_dict=None):
@@ -142,13 +151,17 @@ class Row_Column:
             value = list(reversed(value.split()))
         else:
             value = value.split()
+        i = 1
         for item in value:
+
             self.word_col_list.append(item)
             _dict = {}
             _dict["gi"] = gi
-            _dict["wi"] = value.index(item)+1
+            _dict["wi"] = i ##this is the problem!!!! deprecated value.index(item)+1
             _dict["val"] = item.strip()
             _dict["bw"] = self.baseword
+            i+=1
+
             self.word_col_lod.append(_dict)
 
 
@@ -212,6 +225,14 @@ class Row():
                           ,char_tosplit_alphanumeric=char_tosplit_alphanumeric\
                           ,replace_dict=replace_dict)
 
+    def get_wordlod_max_index(self,key):
+        # return maximum or the highest index for a given key
+        max = 0
+        for row in self.word_lod:
+            if row[key] > max:
+                max = row[key]
+        return max
+
     def reindex_row_df(self,rowid,row_data):
         self.rowid = rowid
         if len(self.fieldname_toevaluate_list) > 0:
@@ -257,7 +278,7 @@ class Row():
             for rc_dict in rc.word_col_lod:
                 row_dict = {}
                 row_dict["idx"] = len(self.word_lod)
-                row_dict["col_idx"] = col_list.index(k)
+                row_dict["ci"] = col_list.index(k)
                 row_dict["col"] = k
                 for k_rc,v_rc in rc_dict.items():
                     row_dict[k_rc] = v_rc
@@ -315,35 +336,31 @@ class Row_Target(Row):
                          ,char_tosplit_alphanumeric=char_tosplit_alphanumeric\
                          ,replace_dict=replace_dict)
         self.matched_src_list = []
+        self.base_word_matched_lod = []
+        self.base_score_weighted = 0
+        self.base_word_mismatched_lod = []
+        self.base_penalty = 0
 
 
-class Row_Source(Row):
-    def __init__(self,rowid,row_df\
-                     ,chars_tostrip=None\
-                     ,fieldname_toevaluate_list=None\
-                     ,wordindex_group_dict=None\
-                     ,wordindex_simple=None\
-                     ,baseword_list=None\
-                     ,char_tosplit_alphanumeric=None\
-                     ,replace_dict=None):
-                     # ,fuzzratio_min=None\
-                     # ,penalty_rate=None):
-        Row.__init__(self,rowid,row_df\
-                         ,chars_tostrip=chars_tostrip\
-                         ,fieldname_toevaluate_list=fieldname_toevaluate_list\
-                         ,wordindex_group_dict=wordindex_group_dict\
-                         ,wordindex_simple=wordindex_simple\
-                         ,baseword_list=baseword_list\
-                         ,char_tosplit_alphanumeric=char_tosplit_alphanumeric\
-                         ,replace_dict=replace_dict)
-        self.word_matched_lod = []
-        self.scoretype_list = []
-        self.score_weighted = 0
-        self.word_mismatched_lod = []
-        self.penalty = 0
+        # self.word_matched_lod = []
+        # self.scoretype_list = []
+        # self.score_weighted = 0
+        # self.word_mismatched_lod = []
+        # self.penalty = 0
 
+    def get_fuzz_ratio(self,search_entry,src_entry):
+        # a few of cleansing/adjustments to boost the matching ratio
+        try:
+            search_entry_lc = search_entry.lower()
+            src_entry_lc = src_entry.lower()
+            # return the ratio
+            #deprecated ratio = fuzz.ratio(search_entry_lc, src_entry_lc)
+            return fuzz.ratio(search_entry_lc, src_entry_lc)
+        except:
+            #print(src_entry_lc)
+            return 0
 
-    def scan_words_and_score(self,rt,fuzzratio_min=None\
+    def scan_words_and_score_forbase(self,rt,fuzzratio_min=None\
                              ,penalty_rate=None\
                              ,penalty_digit_rate=None\
                              ,trg_baseword_rate=None\
@@ -377,9 +394,15 @@ class Row_Source(Row):
                              * src_baseword_rate\
                              * baseword_matched_rate
 
+        # trg_wi_max = rt.get_wordlod_max_index('wi')
+        # trg_weight_wordidx_runtime = []
+        # for _i in trg_weight_wordidx:
+        #
+        # print('trg_wi_max {}'.format(trg_wi_max))
 
         # create a list of matched word for fuzzy ratio testing
         for _rt_word_dict in rt.word_lod:
+
             #rr_debug = self.word_lod[:]
             for _rs_word_dict in self.word_lod:
                 wm_dict = {}
@@ -389,8 +412,8 @@ class Row_Source(Row):
                 fr = self.get_fuzz_ratio(_rt_word_dict["val"],_rs_word_dict["val"])
 
                 # set weighted average
-                if _rt_word_dict["col_idx"] < len(trg_weight_colidx):
-                    wm_dict["sco_trg_colidx"] = trg_weight_colidx[_rt_word_dict["col_idx"]]
+                if _rt_word_dict["ci"] < len(trg_weight_colidx):
+                    wm_dict["sco_trg_colidx"] = trg_weight_colidx[_rt_word_dict["ci"]]
                 else:
                     wm_dict["sco_trg_colidx"] = 1
 
@@ -399,13 +422,19 @@ class Row_Source(Row):
                 else:
                     wm_dict["sco_trg_gi"] = 1
 
+                # print('------------------------')
+                # print("test",_rt_word_dict["wi"])
+                # print("test",trg_weight_wordidx)
+                # print("test",len(trg_weight_wordidx))
+
                 if _rt_word_dict["wi"] < len(trg_weight_wordidx):
                     wm_dict["sco_trg_wi"] = trg_weight_wordidx[_rt_word_dict["wi"]]
                 else:
                     wm_dict["sco_trg_wi"] = 1
 
-                if _rs_word_dict["col_idx"] < len(src_weight_colidx):
-                    wm_dict["sco_src_colidx"] = src_weight_colidx[_rs_word_dict["col_idx"]]
+
+                if _rs_word_dict["ci"] < len(src_weight_colidx):
+                    wm_dict["sco_src_colidx"] = src_weight_colidx[_rs_word_dict["ci"]]
                 else:
                     wm_dict["sco_src_colidx"] = 1
 
@@ -446,6 +475,237 @@ class Row_Source(Row):
                 if is_debug_mode == True:
                     wm_dict['val_trg'] = _rt_word_dict['val']
                     wm_dict['val_src'] = _rs_word_dict['val']
+
+                if fr < fuzzratio_min:
+                    if penalty_rate is not None:
+                        inputp = (100-fr)* wm_dict["sco_trg_colidx"]\
+                                * wm_dict["sco_trg_gi"]\
+                                * wm_dict["sco_trg_wi"]\
+                                * wm_dict["sco_src_colidx"]\
+                                * wm_dict["sco_src_gi"]\
+                                * wm_dict["sco_src_wi"]\
+                                * wm_dict["sco_trg_has_bw"]\
+                                * wm_dict["sco_src_has_bw"]\
+                                * wm_dict["sco_bw_matched"]
+                        # print('inputp {}'.format(inputp))
+                        # print('-----------------')
+                        scorep_pct =  ((inputp + score_weighted_min)) / (score_weighted_max - score_weighted_min) * (penalty_rate/100)
+                        # print('scorep {}'.format(scorep_pct))
+                        # scorep_pct =  ((inputp + score_weighted_min)) / (score_weighted_max - score_weighted_min)
+                        # print('scorep {}'.format(scorep_pct))
+                        self.base_penalty = self.base_penalty + scorep_pct
+                        if is_debug_mode == True:
+                            wm_dict["min"] = score_weighted_min
+                            wm_dict["max"] = score_weighted_max
+                            wm_dict["score_pct"] = scorep_pct
+                            self.base_word_mismatched_lod.append(wm_dict)
+
+
+
+
+                if fr >= fuzzratio_min:
+                    if word_common_list is not None:
+                        #if a word in under word_common_list then decrease the score
+                        if _rs_word_dict["val"].upper() in word_common_list\
+                          or _rt_word_dict["val"].upper() in word_common_list:
+                            fr = fr - (fr * word_common_rate / 100)
+
+                            #if rt.rowid==24 and self.rowid==244:
+                                # print('--------')
+                                # print(_rs_word_dict["val"])
+                                # print(fr)
+                                # print('--------')
+                    if penalty_digit_rate is not None:
+                        #if a word is is_digit() then decrease the score
+                        #in future: should be made outside here!
+                        #           eg. make it higher if other words are matched
+                        if _rs_word_dict["val"].isdigit() == True or _rt_word_dict["val"].isdigit() == True:
+                            fr = fr - (fr * penalty_digit_rate / 100)
+                            #if rt.rowid==24 and self.rowid==244:
+                                # print('----digit----')
+                                # print(fr)
+                                # print('----digit----')
+
+                    # re set fr in the dict
+                    wm_dict["fr"] = fr
+                    # set boosted score by creating relationship by user scores
+
+                    input = fr * wm_dict["sco_trg_colidx"]\
+                            * wm_dict["sco_trg_gi"]\
+                            * wm_dict["sco_trg_wi"]\
+                            * wm_dict["sco_src_colidx"]\
+                            * wm_dict["sco_src_gi"]\
+                            * wm_dict["sco_src_wi"]\
+                            * wm_dict["sco_trg_has_bw"]\
+                            * wm_dict["sco_src_has_bw"]\
+                            * wm_dict["sco_bw_matched"]
+                    if input < score_weighted_min:
+                        score_pct =  input / score_weighted_max * 100
+                    else:
+                        score_pct =  ((input - score_weighted_min) * 100) / (score_weighted_max - score_weighted_min)
+                    # add up scores
+                    # if rt.rowid==24 and self.rowid==244:
+                    #     print('----score_pct----')
+                    #     print('trg {} vs src {}'.format(_rt_word_dict["val"],_rs_word_dict["val"]))
+                    #
+                    #     print(input)
+                    #     print(score_pct)
+                    #     print('----score_pct----')
+                    self.base_score_weighted =  self.base_score_weighted + score_pct
+                    # populate word_matched_lod if debug mod is true
+                    # deprecated
+                    # if is_debug_mode == True:
+                    #     wm_dict["min"] = score_weighted_min
+                    #     wm_dict["max"] = score_weighted_max
+                    #     wm_dict["score_pct"] = score_pct
+                    #     self.word_matched_lod.append(wm_dict)
+                    # else:
+                    #     # we need to add at least 1 record to signal HILookup
+                    #     # that there was a match
+                    #     if len(self.word_matched_lod) == 0:
+                    #         self.word_matched_lod.append(1)
+                    # keep wm_dict to be populated
+                    wm_dict["min"] = score_weighted_min
+                    wm_dict["max"] = score_weighted_max
+                    wm_dict["score_pct"] = score_pct
+                    self.base_word_matched_lod.append(wm_dict)
+
+
+class Row_Source(Row):
+    def __init__(self,rowid,row_df\
+                     ,chars_tostrip=None\
+                     ,fieldname_toevaluate_list=None\
+                     ,wordindex_group_dict=None\
+                     ,wordindex_simple=None\
+                     ,baseword_list=None\
+                     ,char_tosplit_alphanumeric=None\
+                     ,replace_dict=None):
+                     # ,fuzzratio_min=None\
+                     # ,penalty_rate=None):
+        Row.__init__(self,rowid,row_df\
+                         ,chars_tostrip=chars_tostrip\
+                         ,fieldname_toevaluate_list=fieldname_toevaluate_list\
+                         ,wordindex_group_dict=wordindex_group_dict\
+                         ,wordindex_simple=wordindex_simple\
+                         ,baseword_list=baseword_list\
+                         ,char_tosplit_alphanumeric=char_tosplit_alphanumeric\
+                         ,replace_dict=replace_dict)
+        self.word_matched_lod = []
+        self.scoretype_list = []
+        self.score_weighted = 0
+        self.word_mismatched_lod = []
+        self.penalty = 0
+
+    def record_generator(self,data):
+        for row in data:
+            yield(row)
+
+    def scan_words_and_score(self,rt,fuzzratio_min=None\
+                             ,penalty_rate=None\
+                             ,penalty_digit_rate=None\
+                             ,trg_baseword_rate=None\
+                             ,src_baseword_rate=None\
+                             ,baseword_matched_rate=None\
+                             ,word_common_list=None\
+                             ,word_common_rate=None\
+                             ,trg_weight_colidx=None\
+                             ,trg_weight_groupidx=None\
+                             ,trg_weight_wordidx=None\
+                             ,src_weight_colidx=None\
+                             ,src_weight_groupidx=None\
+                             ,src_weight_wordidx=None\
+                             ,is_debug_mode=None):
+
+        # define min and max for weighted score
+        score_weighted_min = fuzzratio_min * min(trg_weight_colidx)\
+                             * min(trg_weight_groupidx)\
+                             * min(trg_weight_wordidx)\
+                             * min(src_weight_colidx)\
+                             * min(src_weight_groupidx)\
+                             * min(src_weight_wordidx)\
+                             * 1 #represent the min for trg_baseword_rate,src_baseword_rate and baseword_matched_rate
+        score_weighted_max = 100 * max(trg_weight_colidx)\
+                             * max(trg_weight_groupidx)\
+                             * max(trg_weight_wordidx)\
+                             * max(src_weight_colidx)\
+                             * max(src_weight_groupidx)\
+                             * max(src_weight_wordidx)\
+                             * trg_baseword_rate\
+                             * src_baseword_rate\
+                             * baseword_matched_rate
+
+
+        # create a list of matched word for fuzzy ratio testing
+        #for _rt_word_dict in rt.word_lod:
+        for _rt_word_dict in record_generator(rt.word_lod:
+
+            #rr_debug = self.word_lod[:]
+            # for _rs_word_dict in self.word_lod:
+            for  _rs_word_dict in record_generator(self.word_lod):
+                wm_dict = {}
+                wm_dict["idx_trg"] = _rt_word_dict["idx"]
+                wm_dict["idx_src"] = _rs_word_dict["idx"]
+
+                fr = self.get_fuzz_ratio(_rt_word_dict["val"],_rs_word_dict["val"])
+
+                # set weighted average
+                if _rt_word_dict["ci"] < len(trg_weight_colidx):
+                    wm_dict["sco_trg_colidx"] = trg_weight_colidx[_rt_word_dict["ci"]]
+                else:
+                    wm_dict["sco_trg_colidx"] = 1
+
+                if _rt_word_dict["gi"] < len(trg_weight_groupidx):
+                    wm_dict["sco_trg_gi"] = trg_weight_groupidx[_rt_word_dict["gi"]]
+                else:
+                    wm_dict["sco_trg_gi"] = 1
+
+                if _rt_word_dict["wi"] < len(trg_weight_wordidx):
+                    wm_dict["sco_trg_wi"] = trg_weight_wordidx[_rt_word_dict["wi"]]
+                else:
+                    wm_dict["sco_trg_wi"] = 1
+
+                if _rs_word_dict["ci"] < len(src_weight_colidx):
+                    wm_dict["sco_src_colidx"] = src_weight_colidx[_rs_word_dict["ci"]]
+                else:
+                    wm_dict["sco_src_colidx"] = 1
+
+                if _rs_word_dict["gi"] < len(src_weight_groupidx):
+                    wm_dict["sco_src_gi"] = src_weight_groupidx[_rs_word_dict["gi"]]
+                else:
+                    wm_dict["sco_src_gi"] = 1
+
+
+                if _rs_word_dict["wi"] < len(src_weight_wordidx):
+                    wm_dict["sco_src_wi"] = src_weight_wordidx[_rs_word_dict["wi"]]
+                else:
+                    wm_dict["sco_src_wi"] = 1
+
+                # define score for trg_has_bw
+                if _rt_word_dict["bw"] is not None:
+                    wm_dict["sco_trg_has_bw"] = trg_baseword_rate
+                else:
+                    wm_dict["sco_trg_has_bw"] = 1
+
+                # define score for src_has_bw
+                if _rs_word_dict["bw"] is not None:
+                    wm_dict["sco_src_has_bw"] = src_baseword_rate
+                else:
+                    wm_dict["sco_src_has_bw"] = 1
+
+                # define score for bw match
+                # if self.rowid in [2581]:
+                #     print(self.rowid,_rt_word_dict["bw"],_rs_word_dict["bw"])
+                wm_dict["sco_bw_matched"] = 1
+                if baseword_matched_rate is not None:
+                    if _rs_word_dict["bw"] is not None:
+                        if _rt_word_dict["bw"] == _rs_word_dict["bw"]:
+                            wm_dict["sco_bw_matched"] = baseword_matched_rate
+
+
+                wm_dict["fr"] = fr
+                #if is_debug_mode == True:
+                wm_dict['val_trg'] = _rt_word_dict['val']
+                wm_dict['val_src'] = _rs_word_dict['val']
 
                 if fr < fuzzratio_min:
                     if penalty_rate is not None:
@@ -524,16 +784,23 @@ class Row_Source(Row):
                     #     print('----score_pct----')
                     self.score_weighted =  self.score_weighted + score_pct
                     # populate word_matched_lod if debug mod is true
-                    if is_debug_mode == True:
-                        wm_dict["min"] = score_weighted_min
-                        wm_dict["max"] = score_weighted_max
-                        wm_dict["score_pct"] = score_pct
-                        self.word_matched_lod.append(wm_dict)
-                    else:
-                        # we need to add at least 1 record to signal HILookup
-                        # that there was a match
-                        if len(self.word_matched_lod) == 0:
-                            self.word_matched_lod.append(1)
+                    # deprecated
+                    # if is_debug_mode == True:
+                    #     wm_dict["min"] = score_weighted_min
+                    #     wm_dict["max"] = score_weighted_max
+                    #     wm_dict["score_pct"] = score_pct
+                    #     self.word_matched_lod.append(wm_dict)
+                    # else:
+                    #     # we need to add at least 1 record to signal HILookup
+                    #     # that there was a match
+                    #     if len(self.word_matched_lod) == 0:
+                    #         self.word_matched_lod.append(1)
+                    # keep wm_dict to be populated
+                    wm_dict["min"] = score_weighted_min
+                    wm_dict["max"] = score_weighted_max
+                    wm_dict["score_pct"] = score_pct
+                    self.word_matched_lod.append(wm_dict)
+
 
 
     def get_fuzz_ratio(self,search_entry,src_entry):
@@ -679,7 +946,7 @@ class HILookup:
             else:
                 row_trg_list.append(pdrow)
 
-        numof_core_touse = multiprocessing.cpu_count() - 1
+        numof_core_touse = multiprocessing.cpu_count() - 4
         # deprecated
         #with Pool(processes=numof_core_touse) as pool:
             #p = pool.map(self.scan_src_row,row_trg_list)
@@ -693,6 +960,15 @@ class HILookup:
         for res in p.imap(self.scan_src_row,row_trg_list):
             if res is not None:
                 self.trg_matching_list.append(res)
+
+        # from multiprocessing.dummy import Pool as ThreadPool
+        # pool = ThreadPool(10)
+        # pool.map(app_test.load_json, proc_units)
+        # for res in pool.imap(self.scan_src_row,row_trg_list):
+        #     if res is not None:
+        #         self.trg_matching_list.append(res)
+        # pool.close()
+        # pool.join()
 
 
     def add_src_list(self):
@@ -778,7 +1054,6 @@ class HILookup:
                         #print(rs.word_matched_lod)
 
                         x = Dump(self.dump_directory,rs.word_matched_lod,"matchedlod({},{})".format(rt.rowid,rs.rowid))
-                        #x.totext()
                         x.tocsv()
                         x = Dump(self.dump_directory,rs.word_mismatched_lod,"mismatchedlod({},{})".format(rt.rowid,rs.rowid))
                         x.tocsv()
@@ -805,6 +1080,25 @@ class HILookup:
 
         # return row target object if the object has at least 1 matching with src
         if len(rt.matched_src_list) > 0:
+            rt.scan_words_and_score_forbase(rt,fuzzratio_min=self.fuzzratio_min\
+                                    ,penalty_rate=self.penalty_rate\
+                                    ,penalty_digit_rate=self.penalty_digit_rate\
+                                    ,trg_baseword_rate=self.trg_baseword_rate\
+                                    ,src_baseword_rate=self.src_baseword_rate\
+                                    ,baseword_matched_rate=self.baseword_matched_rate\
+                                    ,word_common_list=self.word_common_list\
+                                    ,word_common_rate=self.word_common_rate\
+                                    ,trg_weight_colidx=self.trg_weight_colidx\
+                                    ,trg_weight_groupidx=self.trg_weight_groupidx\
+                                    ,trg_weight_wordidx=self.trg_weight_wordidx\
+                                    ,src_weight_colidx=self.src_weight_colidx\
+                                    ,src_weight_groupidx=self.src_weight_groupidx\
+                                    ,src_weight_wordidx=self.src_weight_wordidx\
+                                    ,is_debug_mode=self.is_debug_mode)
+            # print('rt base score: {}'.format(rt.base_score_weighted))
+            if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
+                    x = Dump(self.dump_directory,rt.base_word_matched_lod,"baselod({},{})".format(rt.rowid,rt.rowid))
+                    x.tocsv()
             return rt
 
 
