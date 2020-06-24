@@ -225,6 +225,10 @@ class Row():
                           ,char_tosplit_alphanumeric=char_tosplit_alphanumeric\
                           ,replace_dict=replace_dict)
 
+    def gen_word_lod(self):
+        for dic in self.word_lod:
+            yield dic
+
     def get_wordlod_max_index(self,key):
         # return maximum or the highest index for a given key
         max = 0
@@ -340,6 +344,7 @@ class Row_Target(Row):
         self.base_score_weighted = 0
         self.base_word_mismatched_lod = []
         self.base_penalty = 0
+        self.scans = 0
 
 
         # self.word_matched_lod = []
@@ -404,7 +409,9 @@ class Row_Target(Row):
         for _rt_word_dict in rt.word_lod:
 
             #rr_debug = self.word_lod[:]
-            for _rs_word_dict in self.word_lod:
+            #for _rs_word_dict in self.word_lod:
+            for _rs_word_dict in self.gen_word_lod():
+
                 wm_dict = {}
                 wm_dict["idx_trg"] = _rt_word_dict["idx"]
                 wm_dict["idx_src"] = _rs_word_dict["idx"]
@@ -502,13 +509,13 @@ class Row_Target(Row):
 
 
 
-
+                #print("fr",fr)
                 if fr >= fuzzratio_min:
                     if word_common_list is not None:
                         #if a word in under word_common_list then decrease the score
                         if _rs_word_dict["val"].upper() in word_common_list\
                           or _rt_word_dict["val"].upper() in word_common_list:
-                            fr = fr - (fr * word_common_rate / 100)
+                            fr = fr * word_common_rate / 100
 
                             #if rt.rowid==24 and self.rowid==244:
                                 # print('--------')
@@ -516,6 +523,7 @@ class Row_Target(Row):
                                 # print(fr)
                                 # print('--------')
                     if penalty_digit_rate is not None:
+
                         #if a word is is_digit() then decrease the score
                         #in future: should be made outside here!
                         #           eg. make it higher if other words are matched
@@ -527,7 +535,8 @@ class Row_Target(Row):
                                 # print('----digit----')
 
                     # re set fr in the dict
-                    wm_dict["fr"] = fr
+                    #wm_dict["fr"] = fr
+
                     # set boosted score by creating relationship by user scores
 
                     input = fr * wm_dict["sco_trg_colidx"]\
@@ -595,10 +604,8 @@ class Row_Source(Row):
         self.score_weighted = 0
         self.word_mismatched_lod = []
         self.penalty = 0
+    
 
-    def record_generator(self,data):
-        for row in data:
-            yield(row)
 
     def scan_words_and_score(self,rt,fuzzratio_min=None\
                              ,penalty_rate=None\
@@ -636,12 +643,11 @@ class Row_Source(Row):
 
 
         # create a list of matched word for fuzzy ratio testing
-        #for _rt_word_dict in rt.word_lod:
-        for _rt_word_dict in record_generator(rt.word_lod:
-
+        for _rt_word_dict in rt.word_lod:
             #rr_debug = self.word_lod[:]
-            # for _rs_word_dict in self.word_lod:
-            for  _rs_word_dict in record_generator(self.word_lod):
+            rt.scans = rt.scans + len(self.word_lod)
+            for _rs_word_dict in self.word_lod:
+                #this would slow just count the word_lod rt.scans = rt.scans + 1
                 wm_dict = {}
                 wm_dict["idx_trg"] = _rt_word_dict["idx"]
                 wm_dict["idx_src"] = _rs_word_dict["idx"]
@@ -739,7 +745,7 @@ class Row_Source(Row):
                         #if a word in under word_common_list then decrease the score
                         if _rs_word_dict["val"].upper() in word_common_list\
                           or _rt_word_dict["val"].upper() in word_common_list:
-                            fr = fr - (fr * word_common_rate / 100)
+                            fr = fr * word_common_rate / 100
 
                             #if rt.rowid==24 and self.rowid==244:
                                 # print('--------')
@@ -861,6 +867,8 @@ class HILookup:
         self.baseword_matched_rate = 1
         self.src_list = []
         self.src_dumped_list = [] # to control rs dump to one only at rs object creation run time
+        self.trg_processed_cnt = 0
+        self.scans = 0
         self.trg_matching_list = []
         self.numof_output = numof_output
         self.is_debug_mode = False
@@ -881,14 +889,21 @@ class HILookup:
         # validate user inputs
         #--------------------
 
-        # provide error if user provide column name that does not exist in the data
+        # provide error if user provide column name that does not exist in the target data
         trg_cols = list(self.trg_df)
         for col in self.trg_fieldname_toevaluate_list:
             if col not in trg_cols:
                 print("Error!!! {} is not in target dataset! Exiting...".format(col))
                 quit()
 
+        # provide error if user provide column name that does not exist in the src data
+        src_cols = list(self.src_df)
+        for col in self.src_fieldname_toevaluate_list:
+            if col not in src_cols:
+                print("Error!!! {} is not in source dataset! Exiting...".format(col))
+                quit()        
 
+        
         # provide error/warning if user provide new attributes
         for k,v in self.__dict__.items():
             if k not in ['trg_df','src_df']:
@@ -921,7 +936,9 @@ class HILookup:
 
     def hilookup(self):
         # validate user inputs
-        self.validate_user_input()
+        # DEPRECATED...call this before this function being called. self.validate_user_input()
+
+
         # uppercase the member of commond words
         # so we can avoid to do this in scan_words_and_score()
         if self.word_common_list is not None:
@@ -946,7 +963,7 @@ class HILookup:
             else:
                 row_trg_list.append(pdrow)
 
-        numof_core_touse = multiprocessing.cpu_count() - 4
+        numof_core_touse = multiprocessing.cpu_count() - 1
         # deprecated
         #with Pool(processes=numof_core_touse) as pool:
             #p = pool.map(self.scan_src_row,row_trg_list)
@@ -954,21 +971,22 @@ class HILookup:
         #     if res is not None:
         #         self.trg_matching_list.append(res)
 
+        
         p = multiprocessing.Pool()
         start = time.time()
 
         for res in p.imap(self.scan_src_row,row_trg_list):
+            # optional to send out useful info whenever we've processed one target row
+            self.trg_processed_cnt = self.trg_processed_cnt + 1
+            # send to hi for the numbers of scans done
+            try:
+                self.scans = self.scans + res.scans
+            except:
+                pass
+            # print("hi",self.scans)
+            # print("rt",rt.scans)
             if res is not None:
                 self.trg_matching_list.append(res)
-
-        # from multiprocessing.dummy import Pool as ThreadPool
-        # pool = ThreadPool(10)
-        # pool.map(app_test.load_json, proc_units)
-        # for res in pool.imap(self.scan_src_row,row_trg_list):
-        #     if res is not None:
-        #         self.trg_matching_list.append(res)
-        # pool.close()
-        # pool.join()
 
 
     def add_src_list(self):
@@ -1038,6 +1056,7 @@ class HILookup:
                                     ,src_weight_wordidx=self.src_weight_wordidx\
                                     ,is_debug_mode=self.is_debug_mode)
 
+
             if len(rs.word_matched_lod) > 0:
                 if self.penalty_rate is not None:
                     score_weighted_total = rs.score_weighted - rs.penalty
@@ -1077,7 +1096,7 @@ class HILookup:
                     _otrg = Dump(self.dump_directory,rt.get_debug_object_list(),"obj_trg(" + str(rowid_trg) + ")")
                     _otrg.totext()
 
-
+        
         # return row target object if the object has at least 1 matching with src
         if len(rt.matched_src_list) > 0:
             rt.scan_words_and_score_forbase(rt,fuzzratio_min=self.fuzzratio_min\
