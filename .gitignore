@@ -2,6 +2,9 @@
 *.pyc
 
 misc.py
+#git
+.gitattributes
+.gitignore
 
 #package setup
 setup_notes.txt
