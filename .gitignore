@@ -1,7 +1,6 @@
 #pycache
 *.pyc
 
-misc.py
 #git
 .gitattributes
 .gitignore
