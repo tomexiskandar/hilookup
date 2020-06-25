@@ -7,5 +7,5 @@ misc.py
 .gitignore
 
 #package setup
-setup_notes.txt
-setup_script.py
+zetup_script.py
+zetup_steps.txt
