@@ -63,11 +63,19 @@ class Row_Column:
 
 
         # truncate word(s) if required
-        if replace_dict is not None:
-            value = self.replace_word(value,replace_dict)
+        # if replace_dict is not None:
+        #     value = self.replace_word(value,replace_dict)
+        # if replace_dict is not None:
+        #     value = self.replace_whole_word(value,replace_dict)
 
         if char_tosplit_alphanumeric is not None:
             value = self.split_alphanumeric(value,char_tosplit_alphanumeric)
+
+        ####################
+        # take the opportunity to update here
+        if replace_dict is not None:
+            value = self.replace_whole_word(value, replace_dict)
+            
 
         has_complex_word = False
         if wordindex_group_dict is not None:
@@ -105,7 +113,7 @@ class Row_Column:
             self.word_col_lod.append(_dict)
             # add the splitted words
             if len(wg_item.split()) > 1:
-                self.split_simple_words(si,wg_item,wordindex_simple)
+                self.split_simple_words(si,wg_item,wordindex_simple,replace_dict)
                 # if value =='MAA 4000 M M':
                 #     for row in self.word_col_lod:
                 #         print(row)
@@ -146,14 +154,17 @@ class Row_Column:
             self.word_group_list = _list_temp
 
 
-    def split_simple_words(self,gi,value,wordindex_simple):
+    def split_simple_words(self,gi,value,wordindex_simple,replace_dict):
         if wordindex_simple is None or wordindex_simple=='right-to-left':
             value = list(reversed(value.split()))
         else:
             value = value.split()
         i = 1
         for item in value:
-
+            # ####################
+            # # take the opportunity to update here
+            # print(i, item)
+            # item = self.replace_whole_word(item,replace_dict)
             self.word_col_list.append(item)
             _dict = {}
             _dict["gi"] = gi
@@ -184,6 +195,15 @@ class Row_Column:
             insensitive_k = re.compile(re.escape(k), re.IGNORECASE)
             value = insensitive_k.sub(v,value)
         return insensitive_k.sub(v,value)
+
+
+    def replace_whole_word(self,value,replace_dict=None):
+        for k,v in replace_dict.items():
+            wholeword_regex = r"\b" + re.escape(k) + r"\b"
+            insensitive_k = re.compile(wholeword_regex)
+            value = insensitive_k.sub(v,value)
+        return value
+
 
     def split_alphanumeric(self,value,separator):
         _new_value = []

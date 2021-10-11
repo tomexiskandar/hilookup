@@ -63,11 +63,19 @@ class Row_Column:
 
 
         # truncate word(s) if required
-        if replace_dict is not None:
-            value = self.replace_word(value,replace_dict)
+        # if replace_dict is not None:
+        #     value = self.replace_word(value,replace_dict)
+        # if replace_dict is not None:
+        #     value = self.replace_whole_word(value,replace_dict)
 
         if char_tosplit_alphanumeric is not None:
             value = self.split_alphanumeric(value,char_tosplit_alphanumeric)
+
+        ####################
+        # take the opportunity to update here
+        if replace_dict is not None:
+            value = self.replace_whole_word(value, replace_dict)
+            
 
         has_complex_word = False
         if wordindex_group_dict is not None:
@@ -105,7 +113,7 @@ class Row_Column:
             self.word_col_lod.append(_dict)
             # add the splitted words
             if len(wg_item.split()) > 1:
-                self.split_simple_words(si,wg_item,wordindex_simple)
+                self.split_simple_words(si,wg_item,wordindex_simple,replace_dict)
                 # if value =='MAA 4000 M M':
                 #     for row in self.word_col_lod:
                 #         print(row)
@@ -146,14 +154,17 @@ class Row_Column:
             self.word_group_list = _list_temp
 
 
-    def split_simple_words(self,gi,value,wordindex_simple):
+    def split_simple_words(self,gi,value,wordindex_simple,replace_dict):
         if wordindex_simple is None or wordindex_simple=='right-to-left':
             value = list(reversed(value.split()))
         else:
             value = value.split()
         i = 1
         for item in value:
-
+            # ####################
+            # # take the opportunity to update here
+            # print(i, item)
+            # item = self.replace_whole_word(item,replace_dict)
             self.word_col_list.append(item)
             _dict = {}
             _dict["gi"] = gi
@@ -184,6 +195,15 @@ class Row_Column:
             insensitive_k = re.compile(re.escape(k), re.IGNORECASE)
             value = insensitive_k.sub(v,value)
         return insensitive_k.sub(v,value)
+
+
+    def replace_whole_word(self,value,replace_dict=None):
+        for k,v in replace_dict.items():
+            wholeword_regex = r"\b" + re.escape(k) + r"\b"
+            insensitive_k = re.compile(wholeword_regex)
+            value = insensitive_k.sub(v,value)
+        return value
+
 
     def split_alphanumeric(self,value,separator):
         _new_value = []
@@ -1103,3 +1123,44 @@ class Dump:
         except Exception as e:
             print('warning! {} with reference to dumping object.'.format(e))
             pass
+
+
+#################
+# helper/non core classes
+#################
+class ProgressBar:
+    def __init__(self,total_tasks):
+        self.total_tasks = total_tasks
+        self.done_tasks = 0
+        self.todo_tasks = 0
+        self.progress_pct = 0
+        self.progress_bar = ""
+        self.todo_char = "."
+        self.done_char = ">"
+        self.bar_length = 20
+        self.todo_len = ""
+        self.done_len = ""
+        self.bar = ""
+        
+
+    def calc_progress(self):
+        self.progress_pct = int(self.done_tasks / self.total_tasks * 100)
+        self.todo_tasks = self.total_tasks - self.done_tasks
+    
+    def calc_bar(self):
+        self.done_len = int(self.bar_length / self.total_tasks * self.done_tasks )
+        self.todo_len = self.bar_length - self.done_len
+        # set the bar with the concate 
+        self.bar = (self.done_char * self.done_len) + (self.todo_char * self.todo_len)
+    
+
+
+    def set_progress_bar(self):
+        self.progress_bar = '[{}] {}/{} [{}%]'.format(self.bar,self.done_tasks,self.total_tasks,self.progress_pct)
+
+    def get_progress(self):
+        self.calc_bar()
+        self.calc_progress()
+        self.set_progress_bar()
+
+        return self.progress_bar

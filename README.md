@@ -3,7 +3,7 @@ This module is built to solve complex word matching.
 
 It is powered by a fuzzy matching module from https://github.com/seatgeek/fuzzywuzzy and it extends its functions to:
 
-•	provide user based assumption on word parternising e.g. defining significant column, word grouping and words order and their score weighting
+•	provide user based assumption on word parternising e.g. defining significant column,   word grouping and words order and their score weighting.
 
 •	provide minimum and penalty rate for fuzzy score
 
@@ -11,14 +11,21 @@ It is powered by a fuzzy matching module from https://github.com/seatgeek/fuzzyw
 
 •	provide character cleansing
 
-This module provides low level and broader use of different data matching situations. At the moment this module can only infer a matching based upon text similarity. A client code (your code to implement this module) need to be developed in order to use this module properly.
+This module provides simple and complex data matching situations. At the moment this module can only infer a matching based upon text similarity. A client code (your code to implement this module) need to be developed (see hilookup_test.py in samples folder as an example) in order to use this module properly.
 
-## Patternising your words
+## How to get started
+1. download the package under dist folder, choose one eg. hilookup-0.1.0.tar.gz
+2. install the package in your machine using pip.
+```
+ pip install path/to/hilookup-0.1.0.tar.gz
+ ```
+ >other required packages need to be installed are pandas, openpyxl, fuzzywuzzy, python-Levenshtein
+3. download the files under samples folder
 
-The outcome of this process is to create a pattern based upon your observations on dataset. The challenge is when the structure of the dataset is not consistent and then you should evaluate the best arguments/parameters (a set of values as input to HILookup to control its behaviour) and/or to re-work on your dataset if required.
-Let’s start with the example ‘\Sections\Spams\Foo Bar’. This string can be restructured in different ways and in order to hypothetically closer with its corresponding structure in the target by grouping them and ordering them. So without further ado, the possible pattern from the data above could be (a comma used as separator a single data structure):
-1.	Foo Bar, Bar, Foo, Spams
-2.	Foo Bar, Foo, Bar, Spams
-3.	Sections, Spams, Foo Bar, Foo, Bar
+- Release 1 - Food details file.xlsx (as the source/master data for this test)
+- target_data.xlsx (as the target/user data to match to the source)
+- hilookup_test.py (a python script to run the matching)
+- results_[timestamp].xlsx (the result of this test). To present the results properly, column _rank and group must be sorted (Smallers to Largest) accordingly. 
+
 
 [to be continued....]

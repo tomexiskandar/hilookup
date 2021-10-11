@@ -9,3 +9,8 @@
 zetup_script.py
 zetup_steps.txt
 temp
+hilookup.egg-info
+readme_dev.md
+
+#dev environment
+Pipfile
