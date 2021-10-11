@@ -27,5 +27,12 @@ This module provides simple and complex data matching situations. At the moment 
 - hilookup_test.py (a python script to run the matching)
 - results_[timestamp].xlsx (the result of this test). To present the results properly, column _rank and group must be sorted (Smallers to Largest) accordingly. 
 
+4. run hilookup by youself.
+~~~
+python "path/to/hilookup_test.py"
+~~~
+You should be able to produce an file output as results_[timestamp].xlsx
+I have put mine in sample folder.
 
-[to be continued....]
+[to be continued...]
+I am going to put further explanation on features and example over time.
