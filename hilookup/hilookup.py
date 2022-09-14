@@ -10,7 +10,7 @@ import pandas as pd
 import re
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-from multiprocessing import Pool, freeze_support,Value
+# from multiprocessing import Pool, freeze_support,Value
 import multiprocessing
 import time
 from datetime import datetime
@@ -61,20 +61,15 @@ class Row_Column:
             else:
                 self.baseword = None
 
-
+        #print('   before:',value)
         # truncate word(s) if required
+        if replace_dict is not None:
+            value = self.replace_word(value,replace_dict)
         # if replace_dict is not None:
-        #     value = self.replace_word(value,replace_dict)
-        # if replace_dict is not None:
-        #     value = self.replace_whole_word(value,replace_dict)
-
+        #     value = self.replace_whole_word(value,replace_dict) #problematic! underscore is not a word :)
+        #print('   after:',value)
         if char_tosplit_alphanumeric is not None:
             value = self.split_alphanumeric(value,char_tosplit_alphanumeric)
-
-        ####################
-        # take the opportunity to update here
-        if replace_dict is not None:
-            value = self.replace_whole_word(value, replace_dict)
             
 
         has_complex_word = False
@@ -113,7 +108,7 @@ class Row_Column:
             self.word_col_lod.append(_dict)
             # add the splitted words
             if len(wg_item.split()) > 1:
-                self.split_simple_words(si,wg_item,wordindex_simple,replace_dict)
+                self.split_simple_words(si,wg_item,wordindex_simple)
                 # if value =='MAA 4000 M M':
                 #     for row in self.word_col_lod:
                 #         print(row)
@@ -154,17 +149,13 @@ class Row_Column:
             self.word_group_list = _list_temp
 
 
-    def split_simple_words(self,gi,value,wordindex_simple,replace_dict):
+    def split_simple_words(self,gi,value,wordindex_simple):
         if wordindex_simple is None or wordindex_simple=='right-to-left':
             value = list(reversed(value.split()))
         else:
             value = value.split()
         i = 1
         for item in value:
-            # ####################
-            # # take the opportunity to update here
-            # print(i, item)
-            # item = self.replace_whole_word(item,replace_dict)
             self.word_col_list.append(item)
             _dict = {}
             _dict["gi"] = gi
@@ -806,6 +797,7 @@ class HILookup:
         self.baseword_matched_rate = 1
         self.src_list = []
         self.src_dumped_list = [] # to control rs dump to one only at rs object creation run time
+        self.multi_processing = False
         self.trg_processed_cnt = 0
         self.scans = 0
         self.trg_matching_list = []
@@ -823,7 +815,6 @@ class HILookup:
 
 
     def validate_user_input(self):
-
         #--------------------
         # validate user inputs
         #--------------------
@@ -883,52 +874,42 @@ class HILookup:
         if self.word_common_list is not None:
             self.word_common_list = [x.upper() for x in self.word_common_list]
 
-
-
-
         # check evaluated fields, strip them if not wanted
         #self.subset_columns()
-        # add the src list
-        self.add_src_list()
-        # define trg row to process
-        row_trg_list = []
-        src_list = self.src_list[:]
-        for (rowid_trg,row_trg) in self.trg_df.iterrows():
-            pdrow = ProcessUnit(rowid_trg,row_trg,src_list)
-            if len(self.trg_rownum_todebug_list) > 0:
-                if rowid_trg in self.trg_rownum_todebug_list:
-                    row_trg_list.append(pdrow)
-                    continue
-            else:
-                row_trg_list.append(pdrow)
-        
-        cores_tospare = 0
-        cores_touse = 1
-        if multiprocessing.cpu_count() > 2:
-            cores_tospare = 2
-            cores_touse = multiprocessing.cpu_count() - cores_tospare
-            
-        # deprecated ##########################################
-        # use the imap instead so we can emit few info to the caller
-        #with Pool(processes=numof_core_touse) as pool:
-            #p = pool.map(self.scan_src_row,row_trg_list)
-        # for res in p:
-        #     if res is not None:
-        #         self.trg_matching_list.append(res)
-        #######################################################
 
-        
-        p = multiprocessing.Pool(processes = cores_touse)
-        for res in p.imap(self.scan_src_row,row_trg_list):
-            # optional to send out useful info whenever we've processed one target row
-            self.trg_processed_cnt = self.trg_processed_cnt + 1
-            # send to hi for the numbers of scans done
-            try:
-                self.scans = self.scans + res.scans
-            except:
-                pass
-            if res is not None:
-                self.trg_matching_list.append(res)
+        if self.multi_processing == True:
+            # add the src list
+            self.add_src_list()
+            #define trg row to process
+            row_trg_list = []
+            src_list = self.src_list[:]
+            for (rowid_trg,row_trg) in self.trg_df.iterrows():
+                print(rowid_trg,row_trg)
+                pdrow = ProcessUnit(rowid_trg,row_trg,src_list)
+                if len(self.trg_rownum_todebug_list) > 0:
+                    if rowid_trg in self.trg_rownum_todebug_list:
+                        row_trg_list.append(pdrow)
+                        continue
+                else:
+                    row_trg_list.append(pdrow)
+            cores_tospare = 0
+            cores_touse = 1
+            if multiprocessing.cpu_count() > 2:
+                cores_tospare = 2
+                cores_touse = multiprocessing.cpu_count() - cores_tospare
+            p = multiprocessing.Pool(processes = cores_touse)
+            for res in p.imap(self.scan_src_row_mp,row_trg_list):
+                # optional to send out useful info whenever we've processed one target row
+                self.trg_processed_cnt = self.trg_processed_cnt + 1
+                # send to hi for the numbers of scans done
+                try:
+                    self.scans = self.scans + res.scans
+                except:
+                    pass
+                if res is not None:
+                    self.trg_matching_list.append(res)
+        else:
+            res = self.scan_src_row()
 
 
     def add_src_list(self):
@@ -944,7 +925,123 @@ class HILookup:
             self.src_list.append(rs)
 
 
-    def scan_src_row(self,pdrow):
+    def scan_src_row(self):
+        for (rowid_trg, row_trg) in self.trg_df.iterrows():
+            rt = Row_Target(rowid_trg,row_trg\
+                        ,chars_tostrip=self.chars_tostrip\
+                        ,fieldname_toevaluate_list=self.trg_fieldname_toevaluate_list\
+                        ,wordindex_group_dict=self.trg_wordindex_group_dict\
+                        ,wordindex_simple=self.trg_wordindex_simple\
+                        ,baseword_list=self.trg_baseword_list\
+                        ,char_tosplit_alphanumeric=self.trg_char_tosplit_alphanumeric\
+                        ,replace_dict=self.trg_replace_dict)
+
+            if self.is_debug_mode:
+                if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
+                    if rowid_trg in self.trg_rownum_todebug_list:
+                        _dtrg = Dump(self.dump_directory,rt.word_lod,"words_trg(" + str(rowid_trg) + ")")
+
+            for (rowid_src,row_src) in self.src_df.iterrows():
+                rs = Row_Source(rowid_src,row_src\
+                             ,chars_tostrip=self.chars_tostrip\
+                             ,fieldname_toevaluate_list=self.src_fieldname_toevaluate_list\
+                             ,wordindex_group_dict=self.src_wordindex_group_dict\
+                             ,wordindex_simple=self.src_wordindex_simple\
+                             ,baseword_list=self.src_baseword_list\
+                             ,replace_dict=self.src_replace_dict)
+                # dump rs
+                if self.is_debug_mode:
+                    if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
+                        if rt.rowid in self.trg_rownum_todebug_list:
+                            if rs.rowid in self.src_rownum_todebug_list:
+                                _d = Dump(self.dump_directory,rs.word_lod,"words_src({})".format(rs.rowid))
+                                _d.totext()
+
+
+                rs.scan_words_and_score(rt,fuzzratio_min=self.fuzzratio_min\
+                                        ,penalty_rate=self.penalty_rate\
+                                        ,penalty_digit_rate=self.penalty_digit_rate\
+                                        ,trg_baseword_rate=self.trg_baseword_rate\
+                                        ,src_baseword_rate=self.src_baseword_rate\
+                                        ,baseword_matched_rate=self.baseword_matched_rate\
+                                        ,word_common_list=self.word_common_list\
+                                        ,word_common_rate=self.word_common_rate\
+                                        ,trg_weight_colidx=self.trg_weight_colidx\
+                                        ,trg_weight_groupidx=self.trg_weight_groupidx\
+                                        ,trg_weight_wordidx=self.trg_weight_wordidx\
+                                        ,src_weight_colidx=self.src_weight_colidx\
+                                        ,src_weight_groupidx=self.src_weight_groupidx\
+                                        ,src_weight_wordidx=self.src_weight_wordidx\
+                                        ,is_debug_mode=self.is_debug_mode)
+
+
+                if len(rs.word_matched_lod) > 0:
+                    if self.penalty_rate is not None:
+                        score_weighted_total = rs.score_weighted - rs.penalty
+                    else:
+                        score_weighted_total = rs.score_weighted
+                    if score_weighted_total  >= self.matched_score_min:
+                        rt.matched_src_list.append(rs)
+
+
+                # dump word_matched_lod
+                if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
+                    if rt.rowid in self.trg_rownum_todebug_list:
+                        if rs.rowid in self.src_rownum_todebug_list:
+                            #print(rs.word_matched_lod)
+
+                            x = Dump(self.dump_directory,rs.word_matched_lod,"matchedlod({},{})".format(rt.rowid,rs.rowid))
+                            x.tocsv()
+                            x = Dump(self.dump_directory,rs.word_mismatched_lod,"mismatchedlod({},{})".format(rt.rowid,rs.rowid))
+                            x.tocsv()
+                            pass
+
+            # sort the rt.matched_src_list
+            if len(rt.matched_src_list) > 1:
+                rt.matched_src_list = sorted(rt.matched_src_list\
+                                            ,key=lambda rowsrc_: rowsrc_.score_weighted-rowsrc_.penalty\
+                                            ,reverse=True)
+            # delete any item from index 3
+            if len(rt.matched_src_list) > self.numof_output:
+                del rt.matched_src_list[self.numof_output:len(rt.matched_src_list)]
+
+
+            # the best point to debug trg obj, if asked
+            if self.is_debug_mode:
+                # rt.debug_object()
+                if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
+                    if rowid_trg in self.trg_rownum_todebug_list:
+                        _otrg = Dump(self.dump_directory,rt.get_debug_object_list(),"obj_trg(" + str(rowid_trg) + ")")
+                        _otrg.totext()
+
+            
+            # return row target object if the object has at least 1 matching with src
+            if len(rt.matched_src_list) > 0:
+                rt.scan_words_and_score_forbase(rt,fuzzratio_min=self.fuzzratio_min\
+                                        ,penalty_rate=self.penalty_rate\
+                                        ,penalty_digit_rate=self.penalty_digit_rate\
+                                        ,trg_baseword_rate=self.trg_baseword_rate\
+                                        ,src_baseword_rate=self.src_baseword_rate\
+                                        ,baseword_matched_rate=self.baseword_matched_rate\
+                                        ,word_common_list=self.word_common_list\
+                                        ,word_common_rate=self.word_common_rate\
+                                        ,trg_weight_colidx=self.trg_weight_colidx\
+                                        ,trg_weight_groupidx=self.trg_weight_groupidx\
+                                        ,trg_weight_wordidx=self.trg_weight_wordidx\
+                                        ,src_weight_colidx=self.src_weight_colidx\
+                                        ,src_weight_groupidx=self.src_weight_groupidx\
+                                        ,src_weight_wordidx=self.src_weight_wordidx\
+                                        ,is_debug_mode=self.is_debug_mode)
+                # print('rt base score: {}'.format(rt.base_score_weighted))
+                if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
+                        x = Dump(self.dump_directory,rt.base_word_matched_lod,"baselod({},{})".format(rt.rowid,rt.rowid))
+                        x.tocsv()
+                
+                # add the result to self.trg_matching_list
+                self.trg_matching_list.append(rt)
+
+
+    def scan_src_row_mp(self, pdrow):
         rowid_trg = pdrow.rowid
         row_trg = pdrow.row_data
         rt = Row_Target(rowid_trg,row_trg\
@@ -963,16 +1060,6 @@ class HILookup:
 
 
         for rs in pdrow.src_list:
-
-        #deprecated
-        # for (rowid_src,row_src) in self.src_df.iterrows():
-        #     rs = Row_Source(rowid_src,row_src\
-        #                  ,chars_tostrip=self.chars_tostrip\
-        #                  ,fieldname_toevaluate_list=self.src_fieldname_toevaluate_list\
-        #                  ,wordindex_group_dict=self.src_wordindex_group_dict\
-        #                  ,wordindex_simple=self.src_wordindex_simple\
-        #                  ,baseword_list=self.src_baseword_list\
-        #                  ,replace_dict=self.src_replace_dict)
             # dump rs
             if self.is_debug_mode:
                 if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
@@ -997,7 +1084,6 @@ class HILookup:
                                     ,src_weight_groupidx=self.src_weight_groupidx\
                                     ,src_weight_wordidx=self.src_weight_wordidx\
                                     ,is_debug_mode=self.is_debug_mode)
-
 
             if len(rs.word_matched_lod) > 0:
                 if self.penalty_rate is not None:
@@ -1061,7 +1147,6 @@ class HILookup:
                     x = Dump(self.dump_directory,rt.base_word_matched_lod,"baselod({},{})".format(rt.rowid,rt.rowid))
                     x.tocsv()
             return rt
-
 
 
 class Dump:
