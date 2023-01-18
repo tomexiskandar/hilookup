@@ -15,6 +15,7 @@ import multiprocessing
 import time
 from datetime import datetime
 import os
+import json
 
 class Row_Column:
     def __init__(self,value\
@@ -281,7 +282,8 @@ class Row():
             #     continue
 
             # go to next cell if current pointer is null or user speific column
-            if pd.isnull(v) == True or k == "_rownum":
+            # if pd.isnull(v) == True or k == "_rownum":
+            if pd.isnull(v) == True or k == "_rownum" or k == "RowNumber":
                 continue
             rc = Row_Column(v,chars_tostrip=chars_tostrip\
                              ,wordindex_group_dict=wordindex_group_dict\
@@ -309,7 +311,7 @@ class Row():
         print("matched src list:")
         print("----------------")
         for rs in self.matched_src_list:
-            print("rowid:{}, weighted score:{}, penalty:{}".format(rs.rowid,round(rs.score_weighted,1),round(rs.penalty,1)))
+            print("rowid:{}, weighted score:{}, penalty:{}, row:".format(rs.rowid,round(rs.score_weighted,1),round(rs.penalty,1), rs.row_df))
         print("*************************************")
 
     def get_debug_object_list(self):
@@ -326,6 +328,9 @@ class Row():
         for rs in self.matched_src_list:
             _rrmatchsrc = "rowid:{}, weighted score:{}, penalty:{}".format(rs.rowid,round(rs.score_weighted,1),round(rs.penalty,1))
             _list.append(_rrmatchsrc)
+            for item in rs.word_lod:
+                _wlitem = " " + str(item)
+                _list.append(_wlitem)
         _list.append("*************************************")
         return _list
 
@@ -884,7 +889,6 @@ class HILookup:
             row_trg_list = []
             src_list = self.src_list[:]
             for (rowid_trg,row_trg) in self.trg_df.iterrows():
-                print(rowid_trg,row_trg)
                 pdrow = ProcessUnit(rowid_trg,row_trg,src_list)
                 if len(self.trg_rownum_todebug_list) > 0:
                     if rowid_trg in self.trg_rownum_todebug_list:
@@ -942,12 +946,14 @@ class HILookup:
                         _dtrg = Dump(self.dump_directory,rt.word_lod,"words_trg(" + str(rowid_trg) + ")")
 
             for (rowid_src,row_src) in self.src_df.iterrows():
-                rs = Row_Source(rowid_src,row_src\
-                             ,chars_tostrip=self.chars_tostrip\
-                             ,fieldname_toevaluate_list=self.src_fieldname_toevaluate_list\
-                             ,wordindex_group_dict=self.src_wordindex_group_dict\
-                             ,wordindex_simple=self.src_wordindex_simple\
-                             ,baseword_list=self.src_baseword_list\
+                # added on 7/10/2022 ,char_tosplit_alphanumeric=self.src_char_tosplit_alphanumeric\
+                rs = Row_Source(rowid_src,row_src
+                             ,chars_tostrip=self.chars_tostrip
+                             ,fieldname_toevaluate_list=self.src_fieldname_toevaluate_list
+                             ,wordindex_group_dict=self.src_wordindex_group_dict
+                             ,wordindex_simple=self.src_wordindex_simple
+                             ,baseword_list=self.src_baseword_list
+                             ,char_tosplit_alphanumeric=self.src_char_tosplit_alphanumeric
                              ,replace_dict=self.src_replace_dict)
                 # dump rs
                 if self.is_debug_mode:
@@ -988,8 +994,6 @@ class HILookup:
                 if self.will_dump_object and len(self.trg_rownum_todebug_list) > 0:
                     if rt.rowid in self.trg_rownum_todebug_list:
                         if rs.rowid in self.src_rownum_todebug_list:
-                            #print(rs.word_matched_lod)
-
                             x = Dump(self.dump_directory,rs.word_matched_lod,"matchedlod({},{})".format(rt.rowid,rs.rowid))
                             x.tocsv()
                             x = Dump(self.dump_directory,rs.word_mismatched_lod,"mismatchedlod({},{})".format(rt.rowid,rs.rowid))

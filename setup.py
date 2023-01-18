@@ -16,7 +16,7 @@ setup(
     name='hilookup',  # Required
     description='A module for fuzzy lookup that provides more controls to users.',
     keywords='data quality tool',  # Optional
-    version='0.1.0',
+    version='0.1.1',
     author='Tomex Iskandar',
     author_email='tomex.iskandar@gmail.com',
     packages=['hilookup']
